@@ -27,48 +27,56 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_api_key(api_key);
 
     let client = Client::with_config(config);
-
-    #[allow(unused_variables)]
-    let response: Value = client
-        .chat()
-        .create_byot(json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": args.prompt
-                }
-            ],
-            "model": "anthropic/claude-haiku-4.5",
-            "tools": [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "Read",
-                        "description": "Read and return the contents of a file",
-                        "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "file_path": {
-                            "type": "string",
-                            "description": "The path to the file to read"
+    let role = "user";
+    let prompt = args.prompt;
+    let mut message: Vec<Value> = vec![json!({
+        "role": role,
+        "content": prompt
+    })];
+    loop {
+        #[allow(unused_variables)]
+        let response: Value = client
+            .chat()
+            .create_byot(json!({
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "model": "anthropic/claude-haiku-4.5",
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "Read",
+                            "description": "Read and return the contents of a file",
+                            "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "file_path": {
+                                "type": "string",
+                                "description": "The path to the file to read"
+                                }
+                            },
+                            "required": ["file_path"]
                             }
-                        },
-                        "required": ["file_path"]
                         }
                     }
-                }
-            ]
-        }))
-        .await?;
+                ]
+            }))
+            .await?;
 
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    eprintln!("Logs from your program will appear here!");
+        // You can use print statements as follows for debugging, they'll be visible when running tests.
+        eprintln!("Logs from your program will appear here!");
 
-    //TODO: Uncomment the lines below to pass the first stage
-    // if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
-    //     println!("{}", content);
-    // }
-    read_response(response);
+        //TODO: Uncomment the lines below to pass the first stage
+        // if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+        //     println!("{}", content);
+        // }
+        read_response(response, &mut message);
+    }
+
     Ok(())
 }
 
@@ -86,24 +94,32 @@ struct ToolCall {
     type_tool: String,
     function: ToolCallFunction,
 }
-fn execute_read_tool(tool_call_function: ToolCallFunction) {
+fn execute_read_tool(tool_call_function: ToolCallFunction) -> String {
     let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
     let file_path = data["file_path"].as_str().unwrap();
     let contents = fs::read_to_string(file_path).expect("Should have been able to read the file");
-    println!("{}", contents);
+    return contents;
 }
 
-fn execute_tool_call(tool_call: ToolCall) {
+fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
     match tool_call.function.name.as_str() {
-        "Read" => execute_read_tool(tool_call.function),
+        "Read" => {
+            let result = execute_read_tool(tool_call.function);
+            let response = json!({
+                "role": "tool",
+                "content": result,
+                "tool_call_id": tool_call.id
+            });
+            message_history.push(response);
+        }
         _ => eprintln!("Unknown tool call: {}", tool_call.function.name),
     }
 }
 
-fn read_response(response: Value) {
+fn read_response(response: Value, message_history: &mut Vec<Value>) {
     // get the message form the first choice
     let message = &response["choices"][0]["message"];
-
+    message_history.push(message.clone());
     if let Some(content) = message["content"].as_str() {
         println!("{}", content);
     }
@@ -127,7 +143,16 @@ fn read_response(response: Value) {
             })
             .collect();
 
-        tool_calls.into_iter().for_each(execute_tool_call);
+        tool_calls
+            .into_iter()
+            .for_each(|tool_call| execute_tool_call(tool_call, message_history));
+
+        // find last content message and print it
+        if let Some(last_message) = message_history.iter().rev().find(|m| m["role"] == "tool") {
+            if let Some(content) = last_message["content"].as_str() {
+                println!("{}", content);
+            }
+        }
     }
 }
 
