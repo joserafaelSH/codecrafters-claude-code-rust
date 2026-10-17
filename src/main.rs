@@ -150,11 +150,7 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) -> bool {
             .for_each(|tool_call| execute_tool_call(tool_call, message_history));
 
         // find last content message and print it
-        if let Some(last_message) = message_history.iter().rev().find(|m| m["role"] == "tool") {
-            if let Some(content) = last_message["content"].as_str() {
-                println!("{}", content);
-            }
-        }
+        println!("{:?}", message_history);
         return true;
     }
     false
