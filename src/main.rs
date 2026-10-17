@@ -70,13 +70,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         //     println!("{}", content);
         // }
 
-        println!("{:#?}", response);
         message.push(response["choices"][0]["message"].clone());
         read_response(response.clone(), &mut message);
         let finish_reason = response["choices"][0]["finish_reason"]
             .as_str()
             .unwrap_or("");
         if finish_reason == "stop" {
+            println!(
+                "{}",
+                message.last().unwrap()["content"].as_str().unwrap_or("")
+            );
             break;
         }
     }
@@ -151,7 +154,6 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) {
             .for_each(|tool_call| execute_tool_call(tool_call, message_history));
 
         // find last content message and print it
-        println!("{:#?}", message_history);
     }
 }
 
