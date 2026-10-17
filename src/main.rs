@@ -88,6 +88,7 @@ fn execute_read_tool(tool_call_function: ToolCallFunction) {
     let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
     let file_path = data["file_path"].as_str().unwrap();
     let contents = fs::read_to_string(file_path).expect("Should have been able to read the file");
+    print!("AAAAAAAAAAAAA");
     println!("{}", contents);
 }
 
