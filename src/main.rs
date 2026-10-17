@@ -145,7 +145,7 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) -> bool {
             .for_each(|tool_call| execute_tool_call(tool_call, message_history));
 
         // find last content message and print it
-        println!("{:?}", message_history);
+        println!("{:#?}", message_history);
         return true;
     }
     false
