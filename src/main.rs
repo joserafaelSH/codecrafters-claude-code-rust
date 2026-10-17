@@ -34,7 +34,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "content": prompt
     })];
     loop {
-        println!("{:?}", message);
         #[allow(unused_variables)]
         let response: Value = client
             .chat()
@@ -91,7 +90,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
         //     println!("{}", content);
         // }
-        println!("Response: {:#?}", response);
         message.push(response["choices"][0]["message"].clone());
         read_response(response.clone(), &mut message);
         let finish_reason = response["choices"][0]["finish_reason"]
@@ -134,7 +132,6 @@ fn execute_write_tool(tool_call_function: ToolCallFunction) -> String {
     let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
     let file_path = data["file_path"].as_str().unwrap();
     let contents = data["content"].as_str().unwrap();
-    println!("Writing to file: {} in path {}", contents, file_path);
     fs::write(file_path, contents).expect("Should have been able to write to the file");
     return "".to_string();
 }
@@ -189,7 +186,6 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) {
                 })
             })
             .collect();
-        println!("Tool calls: {:?}", tool_calls);
         tool_calls
             .into_iter()
             .for_each(|tool_call| execute_tool_call(tool_call, message_history));
