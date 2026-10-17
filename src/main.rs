@@ -78,11 +78,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             }
                         }
+                    },
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "Bash",
+                            "description": "Execute a shell command",
+                            "parameters": {
+                                "type": "object",
+                                "required": ["command"],
+                                "properties": {
+                                    "command": {
+                                    "type": "string",
+                                    "description": "The command to execute"
+                                    }
+                                }
+                            }
+                        }
                     }
                 ]
             }))
             .await?;
 
+        println!("{:#?}", response);
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         eprintln!("Logs from your program will appear here!");
 
