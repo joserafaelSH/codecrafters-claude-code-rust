@@ -74,7 +74,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
         //     println!("{}", content);
         // }
-        read_response(response, &mut message);
+        if read_response(response, &mut message) {
+            break;
+        }
     }
 
     Ok(())
@@ -116,7 +118,7 @@ fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
     }
 }
 
-fn read_response(response: Value, message_history: &mut Vec<Value>) {
+fn read_response(response: Value, message_history: &mut Vec<Value>) -> bool {
     // get the message form the first choice
     let message = &response["choices"][0]["message"];
     message_history.push(message.clone());
@@ -153,7 +155,9 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) {
                 println!("{}", content);
             }
         }
+        return true;
     }
+    false
 }
 
 // Executing the Read Tool
