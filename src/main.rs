@@ -141,7 +141,6 @@ fn execute_write_tool(tool_call_function: ToolCallFunction) -> String {
 }
 
 fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
-    println!("Executing tool call: {:?}", tool_call);
     match tool_call.function.name.as_str() {
         "Read" => {
             let result = execute_read_tool(tool_call.function);
