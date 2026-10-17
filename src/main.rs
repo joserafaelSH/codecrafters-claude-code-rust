@@ -219,6 +219,7 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) {
                 })
             })
             .collect();
+        println!("Tool calls: {:?}", tool_calls);
         tool_calls
             .into_iter()
             .for_each(|tool_call| execute_tool_call(tool_call, message_history));
