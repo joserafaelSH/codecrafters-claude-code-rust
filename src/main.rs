@@ -69,15 +69,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
         //     println!("{}", content);
         // }
-        // let finish_reason = response["choices"][0]["finish_reason"]
-        //     .as_str()
-        //     .unwrap_or("");
-        // if finish_reason == "stop" {
-        //     break;
-        // }
+
         println!("{:#?}", response);
         message.push(response["choices"][0]["message"].clone());
         read_response(response, &mut message);
+        let finish_reason = response["choices"][0]["finish_reason"]
+            .as_str()
+            .unwrap_or("");
+        if finish_reason == "stop" {
+            break;
+        }
     }
 
     Ok(())
