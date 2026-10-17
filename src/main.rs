@@ -126,9 +126,6 @@ fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
 fn read_response(response: Value, message_history: &mut Vec<Value>) {
     // get the message form the first choice
     let message = &response["choices"][0]["message"];
-    if let Some(content) = message["content"].as_str() {
-        println!("{}", content);
-    }
 
     if let Some(tool_calls) = message["tool_calls"].as_array() {
         let tool_calls: Vec<ToolCall> = tool_calls
