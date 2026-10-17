@@ -154,6 +154,17 @@ fn execute_write_tool(tool_call_function: ToolCallFunction) -> String {
     return "".to_string();
 }
 
+fn execute_bash_tool(tool_call_function: ToolCallFunction) -> String {
+    let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
+    let command = data["command"].as_str().unwrap();
+    let output = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(command)
+        .output()
+        .expect("Should have been able to execute the command");
+    return String::from_utf8_lossy(&output.stdout).into_owned();
+}
+
 fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
     match tool_call.function.name.as_str() {
         "Read" => {
@@ -167,6 +178,15 @@ fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
         }
         "Write" => {
             let result = execute_write_tool(tool_call.function);
+            let response = json!({
+                "role": "tool",
+                "content": result,
+                "tool_call_id": tool_call.id
+            });
+            message_history.push(response);
+        }
+        "Bash" => {
+            let result = execute_bash_tool(tool_call.function);
             let response = json!({
                 "role": "tool",
                 "content": result,
