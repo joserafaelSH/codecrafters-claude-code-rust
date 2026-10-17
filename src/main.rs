@@ -86,12 +86,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+#[allow(unused_variables)]
+#[derive(Debug)]
+struct ToolCallFunctionParametersPropertiesAux {
+    type_aux: String,
+    description_aux: String,
+}
+#[allow(unused_variables)]
+#[derive(Debug)]
+struct ToolCallFunctionParametersProperties {
+    file_path: ToolCallFunctionParametersPropertiesAux,
+    contents: ToolCallFunctionParametersPropertiesAux,
+}
+#[allow(unused_variables)]
+#[derive(Debug)]
+struct ToolCallFunctionParameters {
+    properties: ToolCallFunctionParametersProperties,
+}
 
 #[allow(unused_variables)]
 #[derive(Debug)]
 struct ToolCallFunction {
     name: String,
     arguments: String,
+    description: String,
+    parameters: ToolCallFunctionParameters,
 }
 
 #[allow(unused_variables)]
@@ -108,10 +127,31 @@ fn execute_read_tool(tool_call_function: ToolCallFunction) -> String {
     return contents;
 }
 
+fn execute_write_tool(tool_call_function: ToolCallFunction) -> String {
+    let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
+    let file_path = data["parameters"]["properties"]["file_path"]["description_aux"]
+        .as_str()
+        .unwrap();
+    let contents = data["parameters"]["properties"]["contents"]["description_aux"]
+        .as_str()
+        .unwrap();
+    fs::write(file_path, contents).expect("Should have been able to write to the file");
+    return "File written successfully".to_string();
+}
+
 fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
     match tool_call.function.name.as_str() {
         "Read" => {
             let result = execute_read_tool(tool_call.function);
+            let response = json!({
+                "role": "tool",
+                "content": result,
+                "tool_call_id": tool_call.id
+            });
+            message_history.push(response);
+        }
+        "Write" => {
+            let result = execute_write_tool(tool_call.function);
             let response = json!({
                 "role": "tool",
                 "content": result,
@@ -135,17 +175,48 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) {
                 let type_tool = call["type"].as_str()?.to_string();
                 let function_name = call["function"]["name"].as_str()?.to_string();
                 let function_args = call["function"]["arguments"].as_str()?.to_string();
+                let function_description = call["function"]["description"].as_str()?.to_string();
+                let function_parameters_properties_file_path_type = call["function"]["parameters"]
+                    ["properties"]["file_path"]["type"]
+                    .as_str()?
+                    .to_string();
+                let function_parameters_properties_file_path_description =
+                    call["function"]["parameters"]["properties"]["file_path"]["description"]
+                        .as_str()?
+                        .to_string();
+                let function_parameters_properties_contents_type =
+                    call["function"]["parameters"]["properties"]["contents"]["type"]
+                        .as_str()?
+                        .to_string();
+                let function_parameters_properties_contents_description =
+                    call["function"]["parameters"]["properties"]["contents"]["description"]
+                        .as_str()?
+                        .to_string();
                 Some(ToolCall {
                     id,
                     type_tool,
                     function: ToolCallFunction {
                         name: function_name,
                         arguments: function_args,
+                        description: function_description,
+                        parameters: ToolCallFunctionParameters {
+                            properties: ToolCallFunctionParametersProperties {
+                                file_path: ToolCallFunctionParametersPropertiesAux {
+                                    type_aux: function_parameters_properties_file_path_type,
+                                    description_aux:
+                                        function_parameters_properties_file_path_description,
+                                },
+                                contents: ToolCallFunctionParametersPropertiesAux {
+                                    type_aux: function_parameters_properties_contents_type,
+                                    description_aux:
+                                        function_parameters_properties_contents_description,
+                                },
+                            },
+                        },
                     },
                 })
             })
             .collect();
-
         tool_calls
             .into_iter()
             .for_each(|tool_call| execute_tool_call(tool_call, message_history));
