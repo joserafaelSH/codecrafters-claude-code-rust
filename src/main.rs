@@ -173,26 +173,36 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) {
         let tool_calls: Vec<ToolCall> = tool_calls
             .iter()
             .filter_map(|call| {
-                let id = call["id"].as_str()?.to_string();
-                let type_tool = call["type"].as_str()?.to_string();
-                let function_name = call["function"]["name"].as_str()?.to_string();
-                let function_args = call["function"]["arguments"].as_str()?.to_string();
-                let function_description = call["function"]["description"].as_str()?.to_string();
+                let id = call["id"].as_str().unwrap_or("").to_string();
+                let type_tool = call["type"].as_str().unwrap_or("").to_string();
+                let function_name = call["function"]["name"].as_str().unwrap_or("").to_string();
+                let function_args = call["function"]["arguments"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string();
+                let function_description = call["function"]["description"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string();
                 let function_parameters_properties_file_path_type = call["function"]["parameters"]
                     ["properties"]["file_path"]["type"]
-                    .as_str()?
+                    .as_str()
+                    .unwrap_or("")
                     .to_string();
                 let function_parameters_properties_file_path_description =
                     call["function"]["parameters"]["properties"]["file_path"]["description"]
-                        .as_str()?
+                        .as_str()
+                        .unwrap_or("")
                         .to_string();
                 let function_parameters_properties_contents_type =
                     call["function"]["parameters"]["properties"]["contents"]["type"]
-                        .as_str()?
+                        .as_str()
+                        .unwrap_or("")
                         .to_string();
                 let function_parameters_properties_contents_description =
                     call["function"]["parameters"]["properties"]["contents"]["description"]
-                        .as_str()?
+                        .as_str()
+                        .unwrap_or("")
                         .to_string();
                 Some(ToolCall {
                     id,
