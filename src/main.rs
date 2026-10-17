@@ -34,6 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "content": prompt
     })];
     loop {
+        println!("{:?}", message);
         #[allow(unused_variables)]
         let response: Value = client
             .chat()
