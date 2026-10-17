@@ -83,14 +83,13 @@ struct ToolCallFunction {
 #[derive(Debug)]
 struct ToolCall {
     id: String,
-    args: String,
+    type_tool: String,
     function: ToolCallFunction,
 }
 fn execute_read_tool(tool_call_function: ToolCallFunction) {
     let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
     let file_path = data["file_path"].as_str().unwrap();
     let contents = fs::read_to_string(file_path).expect("Should have been able to read the file");
-    print!("AAAAAAAAAAAAA");
     println!("{}", contents);
 }
 
@@ -111,17 +110,16 @@ fn read_response(response: Value) {
     }
 
     if let Some(tool_calls) = message["tool_calls"].as_array() {
-        println!("Detected tool calls: {:?}", tool_calls);
         let tool_calls: Vec<ToolCall> = tool_calls
             .iter()
             .filter_map(|call| {
                 let id = call["id"].as_str()?.to_string();
-                let args = call["args"].as_str()?.to_string();
+                let type_tool = call["type"].as_str()?.to_string();
                 let function_name = call["function"]["name"].as_str()?.to_string();
                 let function_args = call["function"]["arguments"].as_str()?.to_string();
                 Some(ToolCall {
                     id,
-                    args,
+                    type_tool,
                     function: ToolCallFunction {
                         name: function_name,
                         arguments: function_args,
@@ -130,7 +128,6 @@ fn read_response(response: Value) {
             })
             .collect();
 
-        println!("Detected tool calls: {:?}", tool_calls);
         tool_calls.into_iter().for_each(execute_tool_call);
     }
 }
