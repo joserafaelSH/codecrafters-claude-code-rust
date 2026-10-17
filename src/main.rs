@@ -1,7 +1,7 @@
 use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
-use serde_json::{Value, json};
-use std::{env, process};
+use serde_json::{Value, from_str, json};
+use std::{env, fs, process};
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -65,9 +65,75 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("Logs from your program will appear here!");
 
     //TODO: Uncomment the lines below to pass the first stage
-    if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+    // if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+    //     println!("{}", content);
+    // }
+    read_response(response);
+    Ok(())
+}
+
+#[allow(unused_variables)]
+struct ToolCallFunction {
+    name: String,
+    arguments: String,
+}
+
+#[allow(unused_variables)]
+struct ToolCall {
+    id: String,
+    args: String,
+    function: ToolCallFunction,
+}
+fn execute_read_tool(tool_call_function: ToolCallFunction) {
+    let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
+    let file_path = data["file_path"].as_str().unwrap();
+    let contents = fs::read_to_string(file_path).expect("Should have been able to read the file");
+    println!("{}", contents);
+}
+
+fn execute_tool_call(tool_call: ToolCall) {
+    match tool_call.function.name.as_str() {
+        "Read" => execute_read_tool(tool_call.function),
+        _ => eprintln!("Unknown tool call: {}", tool_call.function.name),
+    }
+}
+
+fn read_response(response: Value) {
+    // get the message form the first choice
+    let message = &response["choices"][0]["message"];
+
+    if let Some(content) = message["content"].as_str() {
         println!("{}", content);
     }
 
-    Ok(())
+    if let Some(tool_calls) = message["tool_calls"].as_array() {
+        let tool_calls: Vec<ToolCall> = tool_calls
+            .iter()
+            .filter_map(|call| {
+                let id = call["id"].as_str()?.to_string();
+                let args = call["args"].as_str()?.to_string();
+                let function_name = call["function"]["name"].as_str()?.to_string();
+                let function_args = call["function"]["arguments"].as_str()?.to_string();
+                Some(ToolCall {
+                    id,
+                    args,
+                    function: ToolCallFunction {
+                        name: function_name,
+                        arguments: function_args,
+                    },
+                })
+            })
+            .collect();
+
+        tool_calls.into_iter().for_each(execute_tool_call);
+    }
 }
+
+// Executing the Read Tool
+// When you detect a tool_calls array in the response:
+
+// Extract the tool call: Get the message from the first choice, then extract the first tool call from the tool_calls array.
+// Parse the function name: Read the function name to determine which tool to execute.
+// Parse the arguments: Parse the function arguments as a JSON string to get the parameters.
+// Execute the tool: Your program must perform the action requested. For the Read tool, use your language's file system library to read the file at the requested file_path.
+// Output the result: Print the tool execution result. For the Read tool, print the raw file contents directly to stdout (just the contents, with no labels or formatting).
