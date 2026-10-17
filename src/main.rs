@@ -108,31 +108,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-#[allow(unused_variables)]
-#[derive(Debug)]
-struct ToolCallFunctionParametersPropertiesAux {
-    type_aux: String,
-    description_aux: String,
-}
-#[allow(unused_variables)]
-#[derive(Debug)]
-struct ToolCallFunctionParametersProperties {
-    file_path: ToolCallFunctionParametersPropertiesAux,
-    contents: ToolCallFunctionParametersPropertiesAux,
-}
-#[allow(unused_variables)]
-#[derive(Debug)]
-struct ToolCallFunctionParameters {
-    properties: ToolCallFunctionParametersProperties,
-}
 
 #[allow(unused_variables)]
 #[derive(Debug)]
 struct ToolCallFunction {
     name: String,
     arguments: String,
-    description: String,
-    parameters: ToolCallFunctionParameters,
 }
 
 #[allow(unused_variables)]
@@ -151,12 +132,8 @@ fn execute_read_tool(tool_call_function: ToolCallFunction) -> String {
 
 fn execute_write_tool(tool_call_function: ToolCallFunction) -> String {
     let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
-    let file_path = data["parameters"]["properties"]["file_path"]["description"]
-        .as_str()
-        .unwrap();
-    let contents = data["parameters"]["properties"]["contents"]["description"]
-        .as_str()
-        .unwrap();
+    let file_path = data["file_path"].as_str().unwrap();
+    let contents = data["content"].as_str().unwrap();
     println!("Writing to file: {} in path {}", contents, file_path);
     fs::write(file_path, contents).expect("Should have been able to write to the file");
     return "".to_string();
@@ -201,51 +178,13 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) {
                     .as_str()
                     .unwrap_or("")
                     .to_string();
-                let function_description = call["function"]["description"]
-                    .as_str()
-                    .unwrap_or("")
-                    .to_string();
-                let function_parameters_properties_file_path_type = call["function"]["parameters"]
-                    ["properties"]["file_path"]["type"]
-                    .as_str()
-                    .unwrap_or("")
-                    .to_string();
-                let function_parameters_properties_file_path_description =
-                    call["function"]["parameters"]["properties"]["file_path"]["description"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string();
-                let function_parameters_properties_contents_type =
-                    call["function"]["parameters"]["properties"]["contents"]["type"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string();
-                let function_parameters_properties_contents_description =
-                    call["function"]["parameters"]["properties"]["contents"]["description"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string();
+
                 Some(ToolCall {
                     id,
                     type_tool,
                     function: ToolCallFunction {
                         name: function_name,
                         arguments: function_args,
-                        description: function_description,
-                        parameters: ToolCallFunctionParameters {
-                            properties: ToolCallFunctionParametersProperties {
-                                file_path: ToolCallFunctionParametersPropertiesAux {
-                                    type_aux: function_parameters_properties_file_path_type,
-                                    description_aux:
-                                        function_parameters_properties_file_path_description,
-                                },
-                                contents: ToolCallFunctionParametersPropertiesAux {
-                                    type_aux: function_parameters_properties_contents_type,
-                                    description_aux:
-                                        function_parameters_properties_contents_description,
-                                },
-                            },
-                        },
                     },
                 })
             })
