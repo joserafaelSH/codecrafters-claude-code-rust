@@ -73,12 +73,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[allow(unused_variables)]
+#[derive(Debug)]
 struct ToolCallFunction {
     name: String,
     arguments: String,
 }
 
 #[allow(unused_variables)]
+#[derive(Debug)]
 struct ToolCall {
     id: String,
     args: String,
@@ -127,6 +129,7 @@ fn read_response(response: Value) {
             })
             .collect();
 
+        println!("Detected tool calls: {:?}", tool_calls);
         tool_calls.into_iter().for_each(execute_tool_call);
     }
 }
