@@ -111,6 +111,7 @@ fn read_response(response: Value) {
     }
 
     if let Some(tool_calls) = message["tool_calls"].as_array() {
+        println!("Detected tool calls: {:?}", tool_calls);
         let tool_calls: Vec<ToolCall> = tool_calls
             .iter()
             .filter_map(|call| {
