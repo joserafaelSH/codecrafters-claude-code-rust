@@ -151,10 +151,10 @@ fn execute_read_tool(tool_call_function: ToolCallFunction) -> String {
 
 fn execute_write_tool(tool_call_function: ToolCallFunction) -> String {
     let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
-    let file_path = data["parameters"]["properties"]["file_path"]["description_aux"]
+    let file_path = data["parameters"]["properties"]["file_path"]["description"]
         .as_str()
         .unwrap();
-    let contents = data["parameters"]["properties"]["contents"]["description_aux"]
+    let contents = data["parameters"]["properties"]["contents"]["description"]
         .as_str()
         .unwrap();
     println!("Writing to file: {} in path {}", contents, file_path);
