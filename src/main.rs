@@ -136,6 +136,7 @@ fn execute_write_tool(tool_call_function: ToolCallFunction) -> String {
     let contents = data["parameters"]["properties"]["contents"]["description_aux"]
         .as_str()
         .unwrap();
+    println!("Writing to file: {} in path {}", contents, file_path);
     fs::write(file_path, contents).expect("Should have been able to write to the file");
     return "File written successfully".to_string();
 }
