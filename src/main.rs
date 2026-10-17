@@ -73,19 +73,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Response: {:#?}", response);
         message.push(response["choices"][0]["message"].clone());
         read_response(response.clone(), &mut message);
-        // let native_finish_reason = response["choices"][0]["native_finish_reason"]
-        //     .as_str()
-        //     .unwrap_or("");
-        // let finish_reason = response["choices"][0]["finish_reason"]
-        //     .as_str()
-        //     .unwrap_or("");
-        // if finish_reason == "stop" && native_finish_reason != "end_turn" {
-        //     println!(
-        //         "{}",
-        //         message.last().unwrap()["content"].as_str().unwrap_or("")
-        //     );
-        //     break;
-        // }
+        let finish_reason = response["choices"][0]["finish_reason"]
+            .as_str()
+            .unwrap_or("");
+        if finish_reason == "stop" {
+            println!(
+                "{}",
+                message.last().unwrap()["content"].as_str().unwrap_or("")
+            );
+            break;
+        }
     }
 
     Ok(())
@@ -141,7 +138,7 @@ fn execute_write_tool(tool_call_function: ToolCallFunction) -> String {
         .unwrap();
     println!("Writing to file: {} in path {}", contents, file_path);
     fs::write(file_path, contents).expect("Should have been able to write to the file");
-    return "File written successfully".to_string();
+    return "".to_string();
 }
 
 fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
@@ -232,7 +229,7 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) {
                 })
             })
             .collect();
-
+        println!("Tool calls: {:?}", tool_calls);
         tool_calls
             .into_iter()
             .for_each(|tool_call| execute_tool_call(tool_call, message_history));
