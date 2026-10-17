@@ -72,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("{:#?}", response);
         message.push(response["choices"][0]["message"].clone());
-        read_response(response, &mut message);
+        read_response(response.clone(), &mut message);
         let finish_reason = response["choices"][0]["finish_reason"]
             .as_str()
             .unwrap_or("");
