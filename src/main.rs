@@ -94,7 +94,6 @@ fn execute_read_tool(tool_call_function: ToolCallFunction) {
 }
 
 fn execute_tool_call(tool_call: ToolCall) {
-    println!("Executing tool call: {}", tool_call.function.name);
     match tool_call.function.name.as_str() {
         "Read" => execute_read_tool(tool_call.function),
         _ => eprintln!("Unknown tool call: {}", tool_call.function.name),
