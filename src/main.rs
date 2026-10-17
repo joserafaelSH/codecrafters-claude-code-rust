@@ -69,11 +69,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
         //     println!("{}", content);
         // }
-        println!("{:#?}", response);
-        message.push(response["choices"][0]["message"].clone());
-        if read_response(response, &mut message) {
+        let finish_reason = response["choices"][0]["finish_reason"]
+            .as_str()
+            .unwrap_or("");
+        if finish_reason == "stop" {
             break;
         }
+        println!("{:#?}", response);
+        message.push(response["choices"][0]["message"].clone());
+        read_response(response, &mut message);
     }
 
     Ok(())
@@ -115,7 +119,7 @@ fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
     }
 }
 
-fn read_response(response: Value, message_history: &mut Vec<Value>) -> bool {
+fn read_response(response: Value, message_history: &mut Vec<Value>) {
     // get the message form the first choice
     let message = &response["choices"][0]["message"];
     if let Some(content) = message["content"].as_str() {
@@ -141,10 +145,6 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) -> bool {
             })
             .collect();
 
-        if tool_calls.is_empty() {
-            eprintln!("No valid tool calls found in the response.");
-            return true;
-        }
         tool_calls
             .into_iter()
             .for_each(|tool_call| execute_tool_call(tool_call, message_history));
@@ -152,7 +152,6 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) -> bool {
         // find last content message and print it
         println!("{:#?}", message_history);
     }
-    false
 }
 
 // Executing the Read Tool
