@@ -140,13 +140,16 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) -> bool {
             })
             .collect();
 
+        if tool_calls.is_empty() {
+            eprintln!("No valid tool calls found in the response.");
+            return true;
+        }
         tool_calls
             .into_iter()
             .for_each(|tool_call| execute_tool_call(tool_call, message_history));
 
         // find last content message and print it
         println!("{:#?}", message_history);
-        return true;
     }
     false
 }
