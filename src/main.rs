@@ -52,18 +52,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "content": parse_skills_to_system_message(&skills)
     }));
 
-    if prompt.trim().starts_with("/") {
-        let skill_name = prompt
-            .trim()
-            .trim_start_matches("/")
-            .split_whitespace()
-            .next()
-            .unwrap_or("");
+    if prompt.starts_with("/") {
+        let mut tokens = prompt[1..].split_whitespace();
+        let skill_name = tokens.next().unwrap_or("");
+        let remaining_args: Vec<&str> = tokens.collect();
 
         skills.iter().find(|s| s.name == skill_name).map(|s| {
+            let mut content = get_file_content_as_string(&s.path).unwrap_or_default();
+            let mut content = if content.starts_with("---") {
+                content
+                    .split("---")
+                    .nth(2)
+                    .unwrap_or(&content)
+                    .trim()
+                    .to_string()
+            } else {
+                content.trim().to_string()
+            };
+            let full_args_str = remaining_args.join(" ");
+            content = content.replace("$ARGUMENTS", &full_args_str);
+            // for each input_parts[1..] substitute the placeholders in content with the values from input_parts[1..]
+            // $1, $2, $3, etc.
+            for (i, part) in remaining_args.iter().enumerate() {
+                let placeholder_full = format!("$ARGUMENTS[{}]", i);
+                let placeholder_short = format!("${}", i);
+                content = content.replace(&placeholder_full, part);
+                content = content.replace(&placeholder_short, part);
+            }
+
             message.push(json!({
                 "role": "user",
-                "content": format!("{}", get_file_content_as_string(&s.path).unwrap_or_default())
+                "content": format!("{}", content)
             }));
         });
     }
@@ -73,6 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "content": prompt
     }));
     loop {
+        // println!("{:#?}", message);
         #[allow(unused_variables)]
         let response: Value = client
             .chat()
