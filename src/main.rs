@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::with_config(config);
     let mut skills: Vec<Skill> = Vec::new();
     find_skills(&mut skills);
-
+    println!("{:#?}", skills);
     let role = "user";
     let prompt = args.prompt;
     let mut message: Vec<Value> = vec![];
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "role": "system",
         "content": parse_skills_to_system_message(&skills)
     }));
-    println!("{:#?}", message[0]);
+
     message.push(json!({
         "role": role,
         "content": prompt
@@ -146,7 +146,7 @@ fn parse_skills_to_system_message(skills: &Vec<Skill>) -> String {
 
     for skill in skills {
         skill_message.push_str(&format!(
-            "- name: {}\n  description: {}\n\n",
+            "- name: {}\n  description: {}.\n\n",
             skill.name, skill.description
         ));
     }
