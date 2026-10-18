@@ -97,12 +97,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "content": format!("{}", content)
             }));
         }
+    } else {
+        message.push(json!({
+            "role": role,
+            "content": prompt
+        }));
     }
 
-    message.push(json!({
-        "role": role,
-        "content": prompt
-    }));
     loop {
         // println!("{:#?}", message);
         #[allow(unused_variables)]
