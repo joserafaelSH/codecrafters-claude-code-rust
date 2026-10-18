@@ -62,12 +62,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }));
 
     if prompt.starts_with("/") {
-        // "/apple /grape 4127"
-        let n_prompts: Vec<&str> = prompt.split("/").collect();
-        // prompt                   Expanded skills         $ARGUMENTS
-        // "/apple /grape 4127"     apple  grape            4127
-        // /apple 4127 /grape       apple                   4127 /grape
-        // /apple /pear 4127        apple                   /pear 4127
         let mut tokens = prompt.split_whitespace().peekable();
         let mut matched_skills: Vec<&Skill> = Vec::new();
 
@@ -83,8 +77,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let args: Vec<&str> = tokens.collect();
         let full_args = args.join(" ");
-
+        // println!("full args {}", full_args);
         for skill in matched_skills {
+            // println!("skill {:#?}", skill);
             let raw = get_file_content_as_string(&skill.path).unwrap_or_default();
             let mut content = strip_frontmatter(&raw).to_string();
             for (i, arg) in args.iter().enumerate().rev() {
@@ -94,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             content = content.replace("$ARGUMENTS", &full_args);
             message.push(json!({
                 "role": "user",
-                "content": format!("{}", content)
+                "content": format!("Skill: {} (located at .claude/skills/{})\nPaths in the instructions below are relative to that folder.\n\n{}", skill.name, skill.name, content)
             }));
         }
     } else {
@@ -104,71 +99,73 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }));
     }
 
+    let mut tools = vec![
+        json!({
+            "type": "function",
+            "function": {
+                "name": "Read",
+                "description": "Read and return the contents of a file",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "The path to the file to read"
+                        }
+                    },
+                    "required": ["file_path"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "Write",
+                "description": "Write content to a file",
+                "parameters": {
+                    "type": "object",
+                    "required": ["file_path", "content"],
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "The path of the file to write to"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "The content to write to the file"
+                        }
+                    }
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "Bash",
+                "description": "Execute a shell command",
+                "parameters": {
+                    "type": "object",
+                    "required": ["command"],
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The command to execute"
+                        }
+                    }
+                }
+            }
+        }),
+    ];
+
     loop {
-        // println!("{:#?}", message);
+        //println!("{:#?}", message);
         #[allow(unused_variables)]
         let response: Value = client
             .chat()
             .create_byot(json!({
-                "messages": message,
-                "model": "anthropic/claude-haiku-4.5",
-                "tools": [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "Read",
-                            "description": "Read and return the contents of a file",
-                            "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "file_path": {
-                                "type": "string",
-                                "description": "The path to the file to read"
-                                }
-                            },
-                            "required": ["file_path"]
-                            }
-                        }
-                    },
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "Write",
-                            "description": "Write content to a file",
-                            "parameters": {
-                            "type": "object",
-                            "required": ["file_path", "content"],
-                            "properties": {
-                                "file_path": {
-                                "type": "string",
-                                "description": "The path of the file to write to"
-                                },
-                                "content": {
-                                "type": "string",
-                                "description": "The content to write to the file"
-                                }
-                            }
-                            }
-                        }
-                    },
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "Bash",
-                            "description": "Execute a shell command",
-                            "parameters": {
-                                "type": "object",
-                                "required": ["command"],
-                                "properties": {
-                                    "command": {
-                                    "type": "string",
-                                    "description": "The command to execute"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                ]
+              "messages": message,
+              "model": "anthropic/claude-haiku-4.5",
+              "tools": tools
             }))
             .await?;
 
@@ -214,10 +211,6 @@ fn parse_skills_to_system_message(skills: &Vec<Skill>) -> String {
 fn get_skill_name_description(skill_file_path: &path::Path) -> Option<(String, String)> {
     if let Ok(contents) = fs::read_to_string(skill_file_path) {
         let mut lines = contents.lines();
-        // ---
-        // name: apple
-        // description: Deploys the apple service to production.
-        // ---
         if let Some(first_line) = lines.next() {
             if first_line.trim() == "---" {
                 let mut name = String::new();
@@ -287,7 +280,24 @@ struct ToolCall {
 fn execute_read_tool(tool_call_function: ToolCallFunction) -> String {
     let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
     let file_path = data["file_path"].as_str().unwrap();
-    let contents = fs::read_to_string(file_path).expect("Should have been able to read the file");
+    if file_path.ends_with("/") {
+        let aux_path = format!("{}/SKILL.md", file_path);
+        let contents = match fs::read_to_string(file_path) {
+            Ok(text) => text,
+            Err(e) => {
+                eprintln!("Could not read {}: {}", aux_path, e);
+                String::new()
+            }
+        };
+        return contents;
+    }
+    let contents = match fs::read_to_string(file_path) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("Could not read {}: {}", file_path, e);
+            String::new()
+        }
+    };
     return contents;
 }
 
@@ -376,12 +386,3 @@ fn read_response(response: Value, message_history: &mut Vec<Value>) {
         // find last content message and print it
     }
 }
-
-// Executing the Read Tool
-// When you detect a tool_calls array in the response:
-
-// Extract the tool call: Get the message from the first choice, then extract the first tool call from the tool_calls array.
-// Parse the function name: Read the function name to determine which tool to execute.
-// Parse the arguments: Parse the function arguments as a JSON string to get the parameters.
-// Execute the tool: Your program must perform the action requested. For the Read tool, use your language's file system library to read the file at the requested file_path.
-// Output the result: Print the tool execution result. For the Read tool, print the raw file contents directly to stdout (just the contents, with no labels or formatting).
