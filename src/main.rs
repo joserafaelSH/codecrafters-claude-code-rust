@@ -43,6 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "role": "system",
         "content": parse_skills_to_system_message(&skills)
     }));
+    println!("{:#?}", message[0]);
     message.push(json!({
         "role": role,
         "content": prompt
