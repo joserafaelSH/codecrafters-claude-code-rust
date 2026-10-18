@@ -24,6 +24,15 @@ fn get_file_content_as_string(file_path: &str) -> Option<String> {
     }
 }
 
+fn strip_frontmatter(raw: &str) -> &str {
+    if let Some(rest) = raw.strip_prefix("---") {
+        if let Some((_, body)) = rest.split_once("---") {
+            return body.trim();
+        }
+    }
+    raw.trim()
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
@@ -55,40 +64,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if prompt.starts_with("/") {
         // "/apple /grape 4127"
         let n_prompts: Vec<&str> = prompt.split("/").collect();
-        println!("{:#?}", n_prompts);
+        // prompt                   Expanded skills         $ARGUMENTS
+        // "/apple /grape 4127"     apple  grape            4127
+        // /apple 4127 /grape       apple                   4127 /grape
+        // /apple /pear 4127        apple                   /pear 4127
+        let mut tokens = prompt.split_whitespace().peekable();
+        let mut matched_skills: Vec<&Skill> = Vec::new();
 
-        let mut tokens = prompt[1..].split_whitespace();
-        let skill_name = tokens.next().unwrap_or("");
-        let remaining_args: Vec<&str> = tokens.collect();
-
-        skills.iter().find(|s| s.name == skill_name).map(|s| {
-            let mut content = get_file_content_as_string(&s.path).unwrap_or_default();
-            let mut content = if content.starts_with("---") {
-                content
-                    .split("---")
-                    .nth(2)
-                    .unwrap_or(&content)
-                    .trim()
-                    .to_string()
-            } else {
-                content.trim().to_string()
+        while let Some(token) = tokens.peek() {
+            let Some(name) = token.strip_prefix('/') else {
+                break;
             };
-            let full_args_str = remaining_args.join(" ");
-            content = content.replace("$ARGUMENTS", &full_args_str);
-            // for each input_parts[1..] substitute the placeholders in content with the values from input_parts[1..]
-            // $1, $2, $3, etc.
-            for (i, part) in remaining_args.iter().enumerate() {
-                let placeholder_full = format!("$ARGUMENTS[{}]", i);
-                let placeholder_short = format!("${}", i);
-                content = content.replace(&placeholder_full, part);
-                content = content.replace(&placeholder_short, part);
-            }
+            let Some(skill) = skills.iter().find(|s| s.name == name) else {
+                break;
+            };
+            matched_skills.push(skill);
+            tokens.next();
+        }
+        let args: Vec<&str> = tokens.collect();
+        let full_args = args.join(" ");
 
+        for skill in matched_skills {
+            let raw = get_file_content_as_string(&skill.path).unwrap_or_default();
+            let mut content = strip_frontmatter(&raw).to_string();
+            for (i, arg) in args.iter().enumerate().rev() {
+                content = content.replace(&format!("$ARGUMENTS[{}]", i), arg);
+                content = content.replace(&format!("${}", i), arg);
+            }
+            content = content.replace("$ARGUMENTS", &full_args);
             message.push(json!({
                 "role": "user",
                 "content": format!("{}", content)
             }));
-        });
+        }
     }
 
     message.push(json!({
