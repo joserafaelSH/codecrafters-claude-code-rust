@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::path;
 use std::{env, fs, process};
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Args {
     #[arg(short = 'p', long)]
@@ -14,6 +14,14 @@ struct Args {
 struct Skill {
     name: String,
     description: String,
+    path: String,
+}
+
+fn get_file_content_as_string(file_path: &str) -> Option<String> {
+    match fs::read_to_string(file_path) {
+        Ok(content) => Some(content),
+        Err(_) => None,
+    }
 }
 
 #[tokio::main]
@@ -43,6 +51,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "role": "system",
         "content": parse_skills_to_system_message(&skills)
     }));
+
+    if prompt.trim().starts_with("/") {
+        let skill_name = prompt
+            .trim()
+            .trim_start_matches("/")
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
+
+        skills.iter().find(|s| s.name == skill_name).map(|s| {
+            message.push(json!({
+                "role": "user",
+                "content": format!("{}", get_file_content_as_string(&s.path).unwrap_or_default())
+            }));
+        });
+    }
 
     message.push(json!({
         "role": role,
@@ -115,7 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }))
             .await?;
 
-        println!("{:#?}", response);
+        // println!("{:#?}", response);
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         eprintln!("Logs from your program will appear here!");
 
@@ -202,7 +226,11 @@ fn find_skills(skills: &mut Vec<Skill>) {
                     let skill_file_path = path.join("SKILL.md");
                     if let Some((name, description)) = get_skill_name_description(&skill_file_path)
                     {
-                        skills.push(Skill { name, description });
+                        skills.push(Skill {
+                            name,
+                            description,
+                            path: skill_file_path.to_string_lossy().to_string(),
+                        });
                     }
                 }
             }
