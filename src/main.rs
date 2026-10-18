@@ -1,6 +1,7 @@
 use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
-use serde_json::{Value, from_str, json};
+use serde_json::{Value, json};
+use std::path;
 use std::{env, fs, process};
 
 #[derive(Parser)]
@@ -8,6 +9,11 @@ use std::{env, fs, process};
 struct Args {
     #[arg(short = 'p', long)]
     prompt: String,
+}
+
+struct Skill {
+    name: String,
+    description: String,
 }
 
 #[tokio::main]
@@ -27,12 +33,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_api_key(api_key);
 
     let client = Client::with_config(config);
+    let mut skills: Vec<Skill> = Vec::new();
+    find_skills(&mut skills);
+
     let role = "user";
     let prompt = args.prompt;
-    let mut message: Vec<Value> = vec![json!({
+    let mut message: Vec<Value> = vec![];
+    message.push(json!({
+        "role": "system",
+        "content": parse_skills_to_system_message(&skills)
+    }));
+    message.push(json!({
         "role": role,
         "content": prompt
-    })];
+    }));
     loop {
         #[allow(unused_variables)]
         let response: Value = client
@@ -125,6 +139,75 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn parse_skills_to_system_message(skills: &Vec<Skill>) -> String {
+    let mut skill_message = String::new();
+    skill_message.push_str("skills:\n\n");
+
+    for skill in skills {
+        skill_message.push_str(&format!(
+            "- name: {}\n  description: {}\n\n",
+            skill.name, skill.description
+        ));
+    }
+
+    skill_message
+}
+
+fn get_skill_name_description(skill_file_path: &path::Path) -> Option<(String, String)> {
+    if let Ok(contents) = fs::read_to_string(skill_file_path) {
+        let mut lines = contents.lines();
+        // ---
+        // name: apple
+        // description: Deploys the apple service to production.
+        // ---
+        if let Some(first_line) = lines.next() {
+            if first_line.trim() == "---" {
+                let mut name = String::new();
+                let mut description = String::new();
+                for line in lines {
+                    if line.trim() == "---" {
+                        break;
+                    }
+                    if line.starts_with("name:") {
+                        name = line["name:".len()..].trim().to_string();
+                    } else if line.starts_with("description:") {
+                        description = line["description:".len()..].trim().to_string();
+                    }
+                }
+                return Some((name, description));
+            }
+        }
+    }
+    None
+}
+
+fn find_skills(skills: &mut Vec<Skill>) {
+    let skills_path = path::Path::new(".claude/skills/");
+    // the partern
+    //     .claude/
+    // └── skills/
+    //     ├── apple/
+    //     │   └── SKILL.md
+    //     └── grape/
+    //         └── SKILL.md
+
+    // for each folder in skills_path, read the SKILL.md file and print the contents
+    // list all paths in skills_path
+    if let Ok(entries) = fs::read_dir(skills_path) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_dir() {
+                    let skill_file_path = path.join("SKILL.md");
+                    if let Some((name, description)) = get_skill_name_description(&skill_file_path)
+                    {
+                        skills.push(Skill { name, description });
+                    }
+                }
+            }
+        }
+    }
+}
 #[allow(unused_variables)]
 #[derive(Debug)]
 struct ToolCallFunction {
