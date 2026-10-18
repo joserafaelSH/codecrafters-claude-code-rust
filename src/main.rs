@@ -10,7 +10,7 @@ struct Args {
     #[arg(short = 'p', long)]
     prompt: String,
 }
-
+#[derive(Debug)]
 struct Skill {
     name: String,
     description: String,
