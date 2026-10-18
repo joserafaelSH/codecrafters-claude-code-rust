@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::with_config(config);
     let mut skills: Vec<Skill> = Vec::new();
     find_skills(&mut skills);
-    println!("{:#?}", skills);
+    // println!("{:#?}", skills);
     let role = "user";
     let prompt = args.prompt;
     let mut message: Vec<Value> = vec![];
@@ -115,7 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }))
             .await?;
 
-        println!("{:#?}", response);
+        // println!("{:#?}", response);
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         eprintln!("Logs from your program will appear here!");
 
