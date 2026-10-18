@@ -53,6 +53,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }));
 
     if prompt.starts_with("/") {
+        // "/apple /grape 4127"
+        let n_prompts: Vec<&str> = prompt.split("/").collect();
+        println!("{:#?}", n_prompts);
+
         let mut tokens = prompt[1..].split_whitespace();
         let skill_name = tokens.next().unwrap_or("");
         let remaining_args: Vec<&str> = tokens.collect();
