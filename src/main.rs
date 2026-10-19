@@ -155,6 +155,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }),
+        json!({
+          "type": "function",
+          "function": {
+            "name": "Skill",
+            "description": "Load a skill's instructions into the conversation",
+            "parameters": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name": { "type": "string", "description": "The name of the skill to use" },
+                "args": { "type": "string", "description": "Optional arguments for the skill" }
+              }
+            }
+          }
+        }),
     ];
 
     loop {
@@ -320,6 +335,38 @@ fn execute_bash_tool(tool_call_function: ToolCallFunction) -> String {
     return String::from_utf8_lossy(&output.stdout).into_owned();
 }
 
+fn execute_skill_tool(tool_call_function: ToolCallFunction) -> String {
+    let data: Value = serde_json::from_str(&tool_call_function.arguments).unwrap();
+    let skill_name = data["name"].as_str().unwrap();
+    let args = data["args"].as_str().unwrap_or_default();
+    let tokens = args.split_whitespace().peekable();
+    // let mut matched_skills: Vec<&Skill> = Vec::new();
+
+    // while let Some(token) = tokens.peek() {
+    //     let Some(name) = token.strip_prefix('/') else {
+    //         break;
+    //     };
+    //     let Some(skill) = skills.iter().find(|s| s.name == name) else {
+    //         break;
+    //     };
+    //     matched_skills.push(skill);
+    //     tokens.next();
+    // }
+    let args: Vec<&str> = tokens.collect();
+    let full_args = args.join(" ");
+
+    // println!("skill {:#?}", skill);
+    let raw = fs::read_to_string(format!(".claude/skills/{}/SKILL.md", skill_name)).unwrap();
+    let mut content = strip_frontmatter(&raw).to_string();
+    for (i, arg) in args.iter().enumerate().rev() {
+        content = content.replace(&format!("$ARGUMENTS[{}]", i), arg);
+        content = content.replace(&format!("${}", i), arg);
+    }
+    content = content.replace("$ARGUMENTS", &full_args);
+
+    content
+}
+
 fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
     match tool_call.function.name.as_str() {
         "Read" => {
@@ -342,6 +389,15 @@ fn execute_tool_call(tool_call: ToolCall, message_history: &mut Vec<Value>) {
         }
         "Bash" => {
             let result = execute_bash_tool(tool_call.function);
+            let response = json!({
+                "role": "tool",
+                "content": result,
+                "tool_call_id": tool_call.id
+            });
+            message_history.push(response);
+        }
+        "Skill" => {
+            let result = execute_skill_tool(tool_call.function);
             let response = json!({
                 "role": "tool",
                 "content": result,
