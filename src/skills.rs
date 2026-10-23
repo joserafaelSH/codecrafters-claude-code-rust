@@ -62,6 +62,22 @@ impl Skill {
         }
         None
     }
+
+    /// Returns the skill body with `$ARGUMENTS`, `$ARGUMENTS[i]` and `$i` replaced.
+    /// `None` if the skill file can't be read.
+    pub fn expand(&self, args: &str) -> Option<String> {
+        let mut content = self.get_skill_body()?;
+        let parts: Vec<&str> = args.split_whitespace().collect();
+
+        // Highest index first, so `$1` doesn't break `$10`.
+        // Indexed placeholders before `$ARGUMENTS`, so `$ARGUMENTS[0]` isn't broken.
+        for (i, part) in parts.iter().enumerate().rev() {
+            content = content.replace(&format!("$ARGUMENTS[{}]", i), part);
+            content = content.replace(&format!("${}", i), part);
+        }
+
+        Some(content.replace("$ARGUMENTS", &parts.join(" ")))
+    }
 }
 
 fn get_skill_metadata(path: &str) -> Option<Skill> {
